@@ -1,4 +1,5 @@
-import org.w3c.dom.*;
+import org.xml.sax.*;
+import org.xml.sax.helpers.DefaultHandler;
 import javax.xml.parsers.*;
 import java.io.*;
 import java.util.*;
@@ -6,12 +7,16 @@ import java.util.*;
 public class XMLReader {
     public static void main(String[] args) {
         try {
-            File xmlFile = new File("input.xml");
-            DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-            Document doc = dBuilder.parse(xmlFile);
-            doc.getDocumentElement().normalize();
+            SAXParserFactory factory = SAXParserFactory.newInstance();
+            SAXParser saxParser = factory.newSAXParser();
 
+            // Create a handler for SAX events
+            XMLHandler handler = new XMLHandler();
+
+            File xmlFile = new File("input.xml");
+            saxParser.parse(xmlFile, handler);
+
+            // Get the user-selected fields
             Scanner scanner = new Scanner(System.in);
             System.out.println("Which fields do you want to view? (name, postalZip, region, country, address, list)");
             String[] selectedFields = scanner.nextLine().split("\\s*,\\s*");
@@ -24,49 +29,25 @@ public class XMLReader {
                 }
             }
 
-            NodeList recordList = doc.getElementsByTagName("record");
-
+            // Print JSON output
+            List<Map<String, String>> records = handler.getRecords();
             System.out.println("["); // Start of JSON array
-
-            for (int i = 0; i < recordList.getLength(); i++) {
-                Node recordNode = recordList.item(i);
-                if (recordNode.getNodeType() == Node.ELEMENT_NODE) {
-                    Element recordElement = (Element) recordNode;
-
-                    // Start of JSON object for each record
-                    System.out.println("  {");
-
-                    for (int j = 0; j < selectedFields.length; j++) {
-                        String field = selectedFields[j];
-                        NodeList fieldList = recordElement.getElementsByTagName(field);
-                        if (fieldList.getLength() > 0) {
-                            Node fieldNode = fieldList.item(0);
-                            String fieldValue = fieldNode.getTextContent();
-                            // Output field name and value as JSON key-value pair
-                            System.out.println("    \"" + field + "\": \"" + fieldValue + "\"");
-                            // Add comma if not the last field
-                            if (j < selectedFields.length - 1) {
-                                System.out.println(",");
-                            }
-                        } else {
-                            // Output field name with "Not found" value as JSON key-value pair
-                            System.out.println("    \"" + field + "\": \"Not found\"");
-                            if (j < selectedFields.length - 1) {
-                                System.out.println(",");
-                            }
-                        }
-                    }
-
-                    // End of JSON object for each record
-                    System.out.println("  }");
-
-                    // Add comma if not the last record
-                    if (i < recordList.getLength() - 1) {
+            for (int i = 0; i < records.size(); i++) {
+                Map<String, String> record = records.get(i);
+                System.out.println("  {"); // Start of JSON object for each record
+                for (int j = 0; j < selectedFields.length; j++) {
+                    String field = selectedFields[j];
+                    String value = record.getOrDefault(field, "Not found");
+                    System.out.println("    \"" + field + "\": \"" + value + "\"");
+                    if (j < selectedFields.length - 1) {
                         System.out.println(",");
                     }
                 }
+                System.out.println("  }"); // End of JSON object for each record
+                if (i < records.size() - 1) {
+                    System.out.println(",");
+                }
             }
-
             System.out.println("]"); // End of JSON array
 
         } catch (Exception e) {
@@ -83,6 +64,38 @@ public class XMLReader {
             }
         }
         return false;
+    }
+}
+
+class XMLHandler extends DefaultHandler {
+    private List<Map<String, String>> records;
+    private Map<String, String> currentRecord;
+    private StringBuilder data;
+
+    public void startElement(String uri, String localName, String qName, Attributes attributes) throws SAXException {
+        if (qName.equalsIgnoreCase("record")) {
+            currentRecord = new HashMap<>();
+            if (records == null) {
+                records = new ArrayList<>();
+            }
+        }
+        data = new StringBuilder();
+    }
+
+    public void endElement(String uri, String localName, String qName) throws SAXException {
+        if (qName.equalsIgnoreCase("record")) {
+            records.add(currentRecord);
+        } else {
+            currentRecord.put(qName, data.toString());
+        }
+    }
+
+    public void characters(char[] ch, int start, int length) throws SAXException {
+        data.append(new String(ch, start, length));
+    }
+
+    public List<Map<String, String>> getRecords() {
+        return records;
     }
 }
 
