@@ -16,6 +16,14 @@ public class XMLReader {
             System.out.println("Which fields do you want to view? (name, postalZip, region, country, address, list)");
             String[] selectedFields = scanner.nextLine().split("\\s*,\\s*");
 
+            // Validate selected fields
+            for (String field : selectedFields) {
+                if (!isValidField(field)) {
+                    System.out.println("Invalid field: " + field);
+                    return; // Exit the program if an invalid field is found
+                }
+            }
+
             NodeList recordList = doc.getElementsByTagName("record");
 
             System.out.println("["); // Start of JSON array
@@ -64,6 +72,17 @@ public class XMLReader {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    // Function to validate selected fields
+    private static boolean isValidField(String field) {
+        String[] validFields = {"name", "postalZip", "region", "country", "address", "list"};
+        for (String validField : validFields) {
+            if (validField.equals(field)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 
